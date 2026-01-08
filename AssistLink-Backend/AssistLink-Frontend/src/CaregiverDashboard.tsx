@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -8,12 +8,14 @@ import {
   ScrollView, 
   StatusBar,
   Dimensions,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons as Icon } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from './context/AuthContext';
+import { api } from './api/client';
 
 const { width } = Dimensions.get('window');
 
@@ -37,6 +39,7 @@ interface Assignment {
   address?: string;
   image?: string;
   pay?: string; // Pre-formatted string
+  bookingData?: any; // Store full booking data for detail screen
 }
 
 interface Request {
@@ -55,72 +58,127 @@ const CaregiverDashboard = ({ navigation }: { navigation: any }) => {
   const { user } = useAuth();
   const route = useRoute<any>();
   const displayName = user?.full_name || "Caregiver";
+  const [upcomingAssignments, setUpcomingAssignments] = useState<Assignment[]>([]);
+  const [loadingAssignments, setLoadingAssignments] = useState(true);
   
   // Helper to determine if a tab is active
   const isActive = (screenName: string) => route?.name === screenName;
   
-  // --- MOCK DATA ---
-  const upcomingAssignments: Assignment[] = [
-    {
-      id: '1',
-      clientName: 'Mrs. Johnson',
-      service: 'Physiotherapy',
-      status: 'Confirmed',
-      time: 'Today, 2:00 PM - 4:00 PM',
-      address: '123 Maple Ave, Westside',
-      image: undefined, // No placeholder image
-      pay: '₹1,500' 
-    },
-    {
-      id: '2',
-      clientName: 'Mr. Davis',
-      service: 'Mobility Assist',
-      status: 'Confirmed',
-      time: 'Tomorrow, 10:00 AM',
-      address: '45 Oak St, Eastside',
-      image: undefined, // No placeholder image
-      pay: '₹1,200'
+  // Load upcoming assignments from API
+  const loadBookings = async () => {
+    try {
+      setLoadingAssignments(true);
+      // Fetch bookings with status: pending, accepted, or in_progress
+      const bookings = await api.getDashboardBookings({ 
+        status: 'pending,accepted,in_progress',
+        limit: 10 
+      });
+      
+      // Transform bookings to assignments
+      const assignments: Assignment[] = (bookings || []).map((booking: any) => {
+        const careRecipient = booking.care_recipient || {};
+        const serviceTypeMap: Record<string, string> = {
+          'exam_assistance': 'Exam Assistance',
+          'daily_care': 'Daily Care',
+          'one_time': 'One Time',
+          'recurring': 'Recurring',
+          'video_call_session': 'Video Call',
+        };
+        const serviceType = serviceTypeMap[booking.service_type] || booking.service_type || 'Service';
+        
+        // Format date and time
+        let timeStr = 'Date not set';
+        if (booking.scheduled_date) {
+          const scheduledDate = new Date(booking.scheduled_date);
+          const dateStr = scheduledDate.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric',
+            year: 'numeric'
+          });
+          const time = scheduledDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          timeStr = `${dateStr} at ${time}`;
+        }
+        
+        // Format location
+        let locationStr = 'Location not specified';
+        if (booking.location) {
+          if (typeof booking.location === 'string') {
+            locationStr = booking.location;
+          } else if (booking.location.text) {
+            locationStr = booking.location.text;
+          } else if (booking.location.address) {
+            locationStr = booking.location.address;
+          }
+        } else if (careRecipient.address) {
+          if (typeof careRecipient.address === 'string') {
+            locationStr = careRecipient.address;
+          } else if (careRecipient.address.text) {
+            locationStr = careRecipient.address.text;
+          }
+        }
+        
+        return {
+          id: booking.id,
+          clientName: careRecipient.full_name || 'Care Recipient',
+          service: serviceType,
+          status: booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Pending',
+          time: timeStr,
+          address: locationStr,
+          image: careRecipient.profile_photo_url || undefined,
+          bookingData: booking, // Store full booking data for detail screen
+        };
+      });
+      
+      setUpcomingAssignments(assignments);
+    } catch (e: any) {
+      console.error("Failed to load upcoming assignments:", e);
+      setUpcomingAssignments([]);
+    } finally {
+      setLoadingAssignments(false);
     }
-  ];
-
-  const openRequests: Request[] = [
-    {
-      id: '101',
-      clientName: 'Mrs. Thompson',
-      service: 'Daily Assistance',
-      badge: 'NEW',
-      price: 350,
-      duration: '4 hours',
-      distance: '3.2 mi away',
-      hasMap: true,
-      image: undefined // No placeholder image
-    },
-    {
-      id: '102',
-      clientName: 'Mr. Richards',
-      service: 'Elderly Care',
-      badge: null,
-      price: 400,
-      duration: '2 hours',
-      distance: '5.1 mi away',
-      hasMap: false,
-      image: undefined // No placeholder image
-    }
-  ];
+  };
+  
+  useEffect(() => {
+    loadBookings();
+  }, []);
+  
+  // Refresh when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      loadBookings();
+    }, [])
+  );
 
   // Helper to normalize data for the Detail Screen
   const navigateToDetails = (item: any) => {
+    const booking = item.bookingData || {};
+    const videoCall = booking.video_call_request || {};
+    const careRecipient = booking.care_recipient || {};
+    
+    // Prioritize video call details if available
+    const serviceType = videoCall.service_type || booking.service_type || item.service;
+    const location = videoCall.location || booking.location || item.address;
+    const startTime = videoCall.start_time || booking.scheduled_date;
+    const endTime = videoCall.end_time;
+    const duration = videoCall.duration_hours;
+    
     navigation.navigate('CaregiverAppointmentDetailScreen', {
       appointment: {
         id: item.id,
-        recipient: item.clientName, // Mapping clientName to recipient for the detail view
+        recipient: item.clientName,
         service: item.service,
         status: item.status || 'Pending',
-        date: 'Oct 24, 2023', // Mock date
-        time: item.time || item.duration,
-        location: item.address || item.distance,
+        date: startTime ? new Date(startTime).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : item.time,
+        time: startTime && endTime 
+          ? `${new Date(startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${new Date(endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+          : item.time,
+        location: typeof location === 'string' ? location : location?.text || location?.address || item.address,
         image: item.image,
-        pay: item.pay || `₹${item.price}` // Handle pre-formatted string vs raw number
+        bookingData: booking,
+        videoCallDetails: videoCall.id ? videoCall : undefined,
       }
     });
   };
@@ -169,8 +227,7 @@ const CaregiverDashboard = ({ navigation }: { navigation: any }) => {
                 <Text style={styles.statLabel}>Earnings</Text>
               </View>
               <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>₹24,500</Text>
-                <Text style={styles.statGrowth}>+12%</Text>
+                <Text style={styles.statValue}>₹0</Text>
               </View>
            </View>
            <View style={styles.statCard}>
@@ -179,8 +236,7 @@ const CaregiverDashboard = ({ navigation }: { navigation: any }) => {
                 <Text style={styles.statLabel}>Rating</Text>
               </View>
               <View style={styles.statValueRow}>
-                <Text style={styles.statValue}>4.9</Text>
-                <Text style={styles.statSub}>(128)</Text>
+                <Text style={styles.statValue}>0</Text>
               </View>
            </View>
         </View>
@@ -194,6 +250,15 @@ const CaregiverDashboard = ({ navigation }: { navigation: any }) => {
           </TouchableOpacity>
         </View>
         
+        {loadingAssignments ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <ActivityIndicator size="small" color={THEME.primary} />
+          </View>
+        ) : upcomingAssignments.length === 0 ? (
+          <View style={{ padding: 20, alignItems: 'center' }}>
+            <Text style={{ color: THEME.textGray, fontSize: 14 }}>No upcoming assignments</Text>
+          </View>
+        ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalList}>
            {upcomingAssignments.map((item) => (
              <TouchableOpacity 
@@ -230,56 +295,8 @@ const CaregiverDashboard = ({ navigation }: { navigation: any }) => {
              </TouchableOpacity>
            ))}
         </ScrollView>
+        )}
 
-        {/* Requests */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Open Requests</Text>
-          <View style={styles.requestCountBadge}>
-             <Text style={styles.requestCountText}>3</Text>
-          </View>
-        </View>
-        {openRequests.map((req) => (
-           <View key={req.id} style={styles.requestCard}>
-              <View style={styles.reqHeader}>
-                 <View>
-                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                       {req.badge && (
-                         <View style={styles.newBadge}>
-                           <Text style={styles.newBadgeText}>{req.badge}</Text>
-                         </View>
-                       )}
-                       <Text style={styles.reqService}>{req.service}</Text>
-                    </View>
-                    <Text style={styles.reqClientName}>{req.clientName}</Text>
-                 </View>
-                 <View style={{alignItems: 'flex-end'}}>
-                    <Text style={styles.reqPrice}>₹{req.price}<Text style={styles.perHour}>/hr</Text></Text>
-                    <Text style={styles.reqDuration}>{req.duration}</Text>
-                 </View>
-              </View>
-              <View style={styles.reqLocationRow}>
-                 <Icon name="navigation" size={14} color="#333" />
-                 <Text style={styles.reqDistance}>{req.distance}</Text>
-              </View>
-              {req.hasMap && (
-                <View style={styles.mapPlaceholder}>
-                   <Text style={styles.mapText}>Map Preview Area</Text>
-                </View>
-              )}
-              <View style={styles.actionRow}>
-                 <TouchableOpacity style={styles.declineBtn}>
-                    <Text style={styles.declineText}>Decline</Text>
-                 </TouchableOpacity>
-                 <TouchableOpacity 
-                    style={styles.acceptBtn}
-                    // --- INTEGRATION: Navigate to Details to accept ---
-                    onPress={() => navigateToDetails(req)}
-                 >
-                    <Text style={styles.acceptText}>Accept Request</Text>
-                 </TouchableOpacity>
-              </View>
-           </View>
-        ))}
       </ScrollView>
 
       {/* Bottom Nav */}

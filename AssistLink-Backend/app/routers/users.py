@@ -45,8 +45,13 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
                 detail="User profile not found"
             )
         
+        # Ensure emergency_contact is set to None if not present (for backward compatibility)
+        user_data = response.data[0] if isinstance(response.data, list) else response.data
+        if 'emergency_contact' not in user_data:
+            user_data['emergency_contact'] = None
+        
         # Convert the response to UserResponse model to ensure proper serialization
-        return UserResponse(**response.data)
+        return UserResponse(**user_data)
     except HTTPException:
         raise
     except Exception as e:

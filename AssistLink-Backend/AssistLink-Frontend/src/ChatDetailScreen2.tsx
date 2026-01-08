@@ -84,7 +84,9 @@ export default function ChatDetailScreen2({ route, navigation }: Props) {
       // RECEIVED MESSAGE STYLE
       return (
         <View style={styles.msgContainerLeft}>
-          <Image source={{ uri: 'https://i.pravatar.cc/150?u=thompson' }} style={styles.avatarSmall} />
+          <View style={styles.avatarPlaceholder}>
+            <Icon name="account" size={16} color="#6B7280" />
+          </View>
           <View>
             <Text style={styles.senderName}>{name}</Text>
             <View style={styles.bubbleLeft}>
@@ -119,7 +121,12 @@ export default function ChatDetailScreen2({ route, navigation }: Props) {
       <Text style={styles.systemMessage}>Service request accepted • Today 9:41 AM</Text>
 
       {/* VIDEO CALL CARD (Placed here to scroll with list as per original look) */}
-      <TouchableOpacity style={styles.videoCallCard}>
+      <TouchableOpacity 
+        style={styles.videoCallCard}
+        onPress={() => navigation.navigate('VideoCallScreen', {
+          otherPartyName: name || 'User',
+        })}
+      >
         <View style={styles.videoIconCircle}>
           <Icon name="video" size={20} color={THEME.white} />
         </View>
@@ -150,7 +157,12 @@ export default function ChatDetailScreen2({ route, navigation }: Props) {
           <TouchableOpacity style={styles.iconBtn}>
             <Icon name="phone-outline" size={24} color={THEME.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconBtn, styles.videoBtn]}>
+          <TouchableOpacity 
+            style={[styles.iconBtn, styles.videoBtn]}
+            onPress={() => navigation.navigate('VideoCallScreen', {
+              otherPartyName: name || 'User',
+            })}
+          >
             <Icon name="video-outline" size={24} color={THEME.primary} />
           </TouchableOpacity>
         </View>
@@ -319,6 +331,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginRight: 8,
     marginTop: 18,
+  },
+  avatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+    marginTop: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   senderName: {
     fontSize: 11,

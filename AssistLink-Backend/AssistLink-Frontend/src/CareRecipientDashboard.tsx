@@ -13,7 +13,7 @@ import {
   Animated,
   KeyboardAvoidingView,
   Keyboard,
-  TouchableWithoutFeedback,
+  Pressable,
   PanResponder,
   Dimensions,
   Alert
@@ -110,12 +110,13 @@ const SosSwipeButton = ({ onSwipeSuccess }: { onSwipeSuccess: () => void }) => {
 const CareRecipientDashboard = () => {
   // Use the typed navigation hook
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   // --- STATE ---
   const [currentDate, setCurrentDate] = useState("");
   const [greeting, setGreeting] = useState("Good Morning"); 
-  const [showSosModal, setShowSosModal] = useState(true); 
+  // Show modal only if emergency contact is not set
+  const [showSosModal, setShowSosModal] = useState(false); 
   const [caretakerName, setCaretakerName] = useState("");
   const [caretakerPhone, setCaretakerPhone] = useState("");
   const [currentBookings, setCurrentBookings] = useState<any[]>([]);
@@ -192,6 +193,11 @@ const CareRecipientDashboard = () => {
     updateTime();
     const timer = setInterval(updateTime, 60000);
 
+    // Check if emergency contact is set, show modal if not
+    if (user && !user.emergency_contact) {
+      setShowSosModal(true);
+    }
+
     if (showSosModal) {
       Animated.spring(scaleValue, {
         toValue: 1,
@@ -203,7 +209,7 @@ const CareRecipientDashboard = () => {
 
     loadCurrentBookings();
     return () => clearInterval(timer);
-  }, [showSosModal]);
+  }, [showSosModal, user]);
 
   // Reload bookings when screen is focused (e.g., after payment or completion)
   useFocusEffect(
@@ -237,8 +243,32 @@ const CareRecipientDashboard = () => {
     setShowSosModal(false);
   };
 
-  const handleSaveContact = () => {
-    setShowSosModal(false);
+  const handleSaveContact = async () => {
+    if (!caretakerName.trim() || !caretakerPhone.trim()) {
+      Alert.alert("Error", "Please enter both name and phone number");
+      return;
+    }
+
+    try {
+      // Save emergency contact to user profile
+      await api.updateProfile({
+        emergency_contact: {
+          name: caretakerName.trim(),
+          phone: caretakerPhone.trim()
+        }
+      });
+      
+      // Refresh user data to get updated emergency contact
+      if (refreshUser) {
+        await refreshUser();
+      }
+      
+      setShowSosModal(false);
+      Alert.alert("Success", "Emergency contact saved successfully!");
+    } catch (e: any) {
+      console.error("Failed to save emergency contact:", e);
+      Alert.alert("Error", e?.message || "Failed to save emergency contact. Please try again.");
+    }
   };
 
   const displayName = user?.full_name || "Guest";
@@ -255,66 +285,66 @@ const CareRecipientDashboard = () => {
         animationType="fade"
         onRequestClose={handleCloseModal}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.modalOverlay}>
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              style={styles.keyboardView}
-            >
-              <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleValue }] }]}>
-                
-                <TouchableOpacity style={styles.closeBtn} onPress={handleCloseModal}>
-                  <Icon name="close" size={20} color="#999" />
-                </TouchableOpacity>
+        <View style={styles.modalOverlay}>
+          <Pressable onPress={Keyboard.dismiss} style={styles.modalOverlayTouchable} />
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardView}
+          >
+            <Animated.View style={[styles.modalContent, { transform: [{ scale: scaleValue }] }]}>
+              
+              <TouchableOpacity style={styles.closeBtn} onPress={handleCloseModal}>
+                <Icon name="close" size={20} color="#999" />
+              </TouchableOpacity>
 
-                <View style={styles.modalHeader}>
-                  <View style={styles.modalIconBg}>
-                    <Icon name="ambulance" size={28} color={RED} />
-                  </View>
-                  <Text style={styles.modalTitle}>Emergency Setup</Text>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalIconBg}>
+                  <Icon name="ambulance" size={28} color={RED} />
                 </View>
+                <Text style={styles.modalTitle}>Emergency Setup</Text>
+              </View>
 
-                <Text style={styles.modalDesc}>
-                  Please enter your caretaker's mobile number. We will use this for <Text style={{fontWeight:'700', color: RED}}>SOS</Text> services.
-                </Text>
+              <Text style={styles.modalDesc}>
+                Please enter your emergency contact's name and mobile number. This contact does not need to be a user of this app. We will use this for <Text style={{fontWeight:'700', color: RED}}>SOS</Text> emergency calls.
+              </Text>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Caretaker Name</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Caretaker Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. John Doe"
+                  placeholderTextColor="#9CA3AF"
+                  value={caretakerName}
+                  onChangeText={setCaretakerName}
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Mobile Number</Text>
+                <View style={styles.phoneInputRow}>
+                  <View style={styles.countryCode}>
+                    <Text style={styles.countryText}>🇮🇳 +91</Text>
+                  </View>
                   <TextInput
-                    style={styles.input}
-                    placeholder="e.g. John Doe"
+                    style={styles.phoneInput}
+                    placeholder="98765 43210"
                     placeholderTextColor="#9CA3AF"
-                    value={caretakerName}
-                    onChangeText={setCaretakerName}
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    value={caretakerPhone}
+                    onChangeText={setCaretakerPhone}
                   />
                 </View>
+              </View>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Mobile Number</Text>
-                  <View style={styles.phoneInputRow}>
-                    <View style={styles.countryCode}>
-                      <Text style={styles.countryText}>🇮🇳 +91</Text>
-                    </View>
-                    <TextInput
-                      style={styles.phoneInput}
-                      placeholder="98765 43210"
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType="phone-pad"
-                      maxLength={10}
-                      value={caretakerPhone}
-                      onChangeText={setCaretakerPhone}
-                    />
-                  </View>
-                </View>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleSaveContact}>
+                <Text style={styles.confirmBtnText}>Confirm & Save</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity style={styles.confirmBtn} onPress={handleSaveContact}>
-                  <Text style={styles.confirmBtnText}>Confirm & Save</Text>
-                </TouchableOpacity>
-
-              </Animated.View>
-            </KeyboardAvoidingView>
-          </View>
-        </TouchableWithoutFeedback>
+            </Animated.View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
@@ -383,22 +413,6 @@ const CareRecipientDashboard = () => {
         {/* SOS SWIPE BUTTON */}
         <SosSwipeButton onSwipeSuccess={handleEmergencySwipe} />
 
-        {/* SERVICES */}
-        <View style={styles.servicesRow}>
-          {[
-            { label: "Nursing", icon: "medical-bag" },
-            { label: "Physio", icon: "human-handsup" },
-            { label: "Hygiene", icon: "spray-bottle" },
-            { label: "More", icon: "dots-horizontal" },
-          ].map((item, index) => (
-            <TouchableOpacity key={index} style={styles.serviceItem}>
-              <View style={styles.serviceIcon}>
-                <Icon name={item.icon as any} size={28} color={GREEN} />
-              </View>
-              <Text style={styles.serviceText}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
 
         {/* STATUS SECTION HEADER */}
         <View style={styles.sectionHeader}>
@@ -501,37 +515,6 @@ const CareRecipientDashboard = () => {
           </View>
         )}
 
-        {/* RECENT ACTIVITY */}
-        <Text style={[styles.sectionTitle, { marginLeft: 16, marginBottom: 12 }]}>Recent Activity</Text>
-
-        <View style={styles.activityCard}>
-          <View style={styles.activityLeft}>
-            <View style={styles.activityIconBlue}>
-              <Icon name="pill" size={20} color="#0055FF" />
-            </View>
-            <View>
-              <Text style={styles.activityTitle}>Medication Delivery</Text>
-              <Text style={styles.activitySub}>Yesterday, 2:00 PM</Text>
-            </View>
-          </View>
-          <Text style={styles.completed}>Completed</Text>
-        </View>
-
-        <View style={styles.activityCard}>
-          <View style={styles.activityLeft}>
-            <View style={styles.activityIconPurple}>
-              <Icon name="broom" size={20} color="#8800FF" />
-            </View>
-            <View>
-              <Text style={styles.activityTitle}>Housekeeping</Text>
-              <Text style={styles.activitySub}>Oct 22, 10:00 AM</Text>
-            </View>
-          </View>
-          <TouchableOpacity>
-             <Text style={styles.rebook}>Re-book</Text>
-          </TouchableOpacity>
-        </View>
-
       </ScrollView>
 
       {/* BOTTOM NAV */}
@@ -562,8 +545,9 @@ const styles = StyleSheet.create({
   },
 
   // --- MODAL STYLES ---
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  keyboardView: { width: '100%', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalOverlayTouchable: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  keyboardView: { width: '100%', alignItems: 'center', padding: 20 },
   modalContent: {
     width: '90%', backgroundColor: '#fff', borderRadius: 24, padding: 24,
     shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 10,

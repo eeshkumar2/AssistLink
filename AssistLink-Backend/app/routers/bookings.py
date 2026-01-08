@@ -135,7 +135,7 @@ async def create_video_call_request(
             traceback.print_exc()
             caregiver_name = "a caregiver"
         
-        # Notify caregiver about new video call request
+        # Notify caregiver about new video call request (ONLY notification sent - care recipient doesn't get notified)
         # Wrap in try-except to ensure it doesn't fail silently
         try:
             notification_result = await notify_video_call_request(
@@ -153,22 +153,7 @@ async def create_video_call_request(
             traceback.print_exc()
             # Don't fail the request if notification fails
         
-        # Also notify care recipient that request was created
-        try:
-            notification_result = await notify_video_call_created_for_recipient(
-                care_recipient_id=user_id_str,
-                caregiver_name=caregiver_name,
-                video_call_id=video_call["id"]
-            )
-            if notification_result:
-                print(f"[INFO] Notification sent to care recipient {user_id_str} for video call {video_call['id']}", flush=True)
-            else:
-                print(f"[WARN] Notification creation returned None for care recipient {user_id_str}", flush=True)
-        except Exception as notif_error:
-            import traceback
-            print(f"[ERROR] Error sending notification to care recipient: {notif_error}", flush=True)
-            traceback.print_exc()
-            # Don't fail the request if notification fails
+        # NOTE: We do NOT notify care recipient when request is created - only caregiver gets notification to accept/decline
         
         print(f"[INFO] ===== VIDEO CALL REQUEST CREATION SUCCESSFUL =====", flush=True)
         return video_call
@@ -471,19 +456,8 @@ async def accept_video_call_request(
             caregiver_name = caregiver_response.data.get("full_name", "Caregiver") if caregiver_response.data else "Caregiver"
             
             # Notify the other party
-            if is_care_recipient:
-                # Care recipient accepted, notify caregiver
-                try:
-                    await notify_video_call_accepted(
-                        user_id=video_call["caregiver_id"],
-                        other_party_name=care_recipient_name,
-                        video_call_id=video_call_id,
-                        is_caregiver=False
-                    )
-                    print(f"[INFO] Notification sent to caregiver about care recipient acceptance", flush=True)
-                except Exception as notif_error:
-                    print(f"[WARN] Error sending notification to caregiver: {notif_error}", flush=True)
-            else:
+            # Note: We do NOT notify when care recipient accepts - only when caregiver accepts/declines
+            if not is_care_recipient:
                 # Caregiver accepted, notify care recipient
                 try:
                     await notify_video_call_accepted(

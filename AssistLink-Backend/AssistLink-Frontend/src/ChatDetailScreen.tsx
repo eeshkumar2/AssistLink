@@ -49,7 +49,12 @@ const ChatDetailScreen = ({ navigation }: any) => {
           <TouchableOpacity style={styles.iconBtn}>
             <Icon name="phone-outline" size={24} color={THEME.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconBtn, styles.videoBtn]}>
+          <TouchableOpacity 
+            style={[styles.iconBtn, styles.videoBtn]}
+            onPress={() => navigation.navigate('VideoCallScreen', {
+              otherPartyName: 'Sarah',
+            })}
+          >
             <Icon name="video-outline" size={24} color={THEME.primary} />
           </TouchableOpacity>
         </View>
@@ -81,7 +86,9 @@ const ChatDetailScreen = ({ navigation }: any) => {
 
           {/* --- RECEIVED MESSAGE --- */}
           <View style={styles.msgContainerLeft}>
-            <Image source={{ uri: 'https://i.imgur.com/0y8Ftya.png' }} style={styles.avatarSmall} />
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="account" size={16} color="#6B7280" />
+            </View>
             <View>
               <Text style={styles.senderName}>Sarah (Caregiver)</Text>
               <View style={styles.bubbleLeft}>
@@ -104,14 +111,21 @@ const ChatDetailScreen = ({ navigation }: any) => {
 
           {/* --- TYPING INDICATOR --- */}
           <View style={styles.msgContainerLeft}>
-            <Image source={{ uri: 'https://i.imgur.com/0y8Ftya.png' }} style={styles.avatarSmall} />
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="account" size={16} color="#6B7280" />
+            </View>
             <View style={styles.typingBubble}>
               <Icon name="dots-horizontal" size={24} color={THEME.grayText} />
             </View>
           </View>
 
           {/* --- VIDEO CALL PROMPT --- */}
-          <TouchableOpacity style={styles.videoCallCard}>
+          <TouchableOpacity 
+            style={styles.videoCallCard}
+            onPress={() => navigation.navigate('VideoCallScreen', {
+              otherPartyName: 'Sarah',
+            })}
+          >
             <View style={styles.videoIconCircle}>
               <Icon name="video" size={20} color={THEME.white} />
             </View>
@@ -264,6 +278,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginRight: 8,
     marginTop: 18, // Push down to align with bubble
+  },
+  avatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 8,
+    marginTop: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   senderName: {
     fontSize: 11,

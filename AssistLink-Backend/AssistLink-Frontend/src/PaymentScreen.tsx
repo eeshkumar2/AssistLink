@@ -112,12 +112,16 @@ export default function PaymentScreen({ route, navigation }: any) {
 
       <View style={styles.content}>
         <View style={styles.card}>
-          <Image 
-            source={{ 
-              uri: appointment.image || appointment.caregiver?.profile_photo_url || 'https://i.pravatar.cc/150?u=caregiver' 
-            }} 
-            style={styles.avatar} 
-          />
+          {appointment.caregiver?.profile_photo_url ? (
+            <Image 
+              source={{ uri: appointment.caregiver.profile_photo_url }} 
+              style={styles.avatar} 
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="account" size={32} color="#6B7280" />
+            </View>
+          )}
           <Text style={styles.name}>
             {appointment.caregiver?.full_name || appointment.caregiver || 'Caregiver'}
           </Text>
@@ -194,6 +198,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
   },
   avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 12 },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   name: { fontSize: 20, fontWeight: '700', color: THEME.text },
   role: { color: THEME.subText, marginBottom: 20, fontSize: 14 },
 

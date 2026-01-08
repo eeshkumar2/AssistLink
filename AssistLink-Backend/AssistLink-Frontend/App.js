@@ -40,6 +40,9 @@ import ChatList2 from './src/ChatList2';
 import ChatDetailScreen2 from './src/ChatDetailScreen2';
 import ChatDetailsScreen from './src/ChatDetailsScreen';
 
+// --- VIDEO CALL ---
+import VideoCallScreen from './src/VideoCallScreen';
+
 const Stack = createNativeStackNavigator();
 
 function RootNavigator() {
@@ -86,6 +89,7 @@ function RootNavigator() {
           <Stack.Screen name="PaymentScreen" component={PaymentScreen} />
           <Stack.Screen name="UpcomingVisitScreen" component={UpcomingVisitScreen} />
           <Stack.Screen name="CaregiverMapScreen" component={CaregiverMapScreen} />
+          <Stack.Screen name="VideoCallScreen" component={VideoCallScreen} />
 
           {/* CHAT */}
           <Stack.Screen name="ChatList" component={ChatList} />

@@ -13,7 +13,7 @@ import {
   Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { api } from './api/client';
 
@@ -128,7 +128,7 @@ const MatchmakingScreen = ({ navigation }: any) => {
               price: profile?.hourly_rate || 0,
               rating: profile?.avg_rating || 0,
               reviews: profile?.total_reviews || 0,
-              image: c.profile_photo_url || 'https://i.pravatar.cc/150?u=' + c.id,
+              image: c.profile_photo_url || null,
               tags: profile?.skills || [],
               distance: 0,
               distanceStr: '',
@@ -231,7 +231,13 @@ const MatchmakingScreen = ({ navigation }: any) => {
               /* STEP 2: BOOK ZOOM (ONLY OPTION) */
               <>
                 <View style={styles.popupHeader}>
-                  <Image source={{ uri: selectedCaregiver.image }} style={styles.popupAvatar} />
+                  {selectedCaregiver.image ? (
+                    <Image source={{ uri: selectedCaregiver.image }} style={styles.popupAvatar} />
+                  ) : (
+                    <View style={styles.popupAvatarPlaceholder}>
+                      <MaterialCommunityIcons name="account" size={40} color="#6B7280" />
+                    </View>
+                  )}
                   <Text style={styles.popupTitle}>Book {selectedCaregiver.name.split(',')[0]}?</Text>
                   <Text style={styles.popupSubtitle}>
                     Request a 15-second video call with this caregiver.
@@ -314,7 +320,13 @@ const MatchmakingScreen = ({ navigation }: any) => {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View>
-            <Image source={{ uri: item.image }} style={styles.avatar} />
+            {item.image ? (
+              <Image source={{ uri: item.image }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <MaterialCommunityIcons name="account" size={30} color="#6B7280" />
+              </View>
+            )}
             {item.status === 'online' && <View style={styles.onlineBadge}><View style={styles.onlineDot} /></View>}
             {isBusy && <View style={styles.busyBadge}><Text style={styles.busyText}>BUSY</Text></View>}
           </View>
@@ -468,6 +480,14 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFF', borderRadius: 16, padding: 15, marginBottom: 15, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 5 },
   cardHeader: { flexDirection: 'row', marginBottom: 12 },
   avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#EEE' },
+  avatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   onlineBadge: { position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, borderRadius: 9, backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' },
   onlineDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#059669', borderWidth: 2, borderColor: '#FFF' },
   busyBadge: { position: 'absolute', bottom: -5, left: 5, right: 5, backgroundColor: '#333', borderRadius: 4, paddingVertical: 2, alignItems: 'center' },
@@ -516,6 +536,17 @@ const styles = StyleSheet.create({
   popupBackBtn: { position: 'absolute', top: 16, left: 16, padding: 4, zIndex: 10 },
   popupHeader: { alignItems: 'center', marginBottom: 24 },
   popupAvatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 16, borderWidth: 3, borderColor: '#F5F7FA' },
+  popupAvatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+    borderWidth: 3,
+    borderColor: '#F5F7FA',
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   popupTitle: { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 8, textAlign: 'center' },
   popupSubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20, paddingHorizontal: 10 },
   popupActions: { width: '100%' },

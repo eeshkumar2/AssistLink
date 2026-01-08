@@ -34,16 +34,19 @@ if (Platform.OS !== 'web') {
   }
 }
 
-// Import react-native-maps (only works on native platforms, not web)
-if (Platform.OS !== 'web') {
-  try {
-    const Maps = require('react-native-maps');
-    MapView = Maps.default || Maps;
+// Import react-native-maps (only works in development builds, not in Expo Go)
+// Metro config will replace this with a mock in Expo Go
+try {
+  const Maps = require('react-native-maps');
+  // Check if this is the mock (won't have native properties) or real maps
+  if (Maps && Maps.MapView) {
+    MapView = Maps.default || Maps.MapView || Maps;
     Marker = Maps.Marker;
     PROVIDER_DEFAULT = Maps.PROVIDER_DEFAULT;
-  } catch (e) {
-    console.warn('react-native-maps not available:', e);
   }
+} catch (e) {
+  // If require fails, Metro should have replaced it with mock, but just in case:
+  console.warn('react-native-maps not available, using fallback:', e);
 }
 
 // Web fallback components

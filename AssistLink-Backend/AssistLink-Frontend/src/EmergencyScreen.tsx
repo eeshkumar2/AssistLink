@@ -10,9 +10,11 @@ import {
   Animated,
   Vibration,
   StatusBar,
-  Pressable
+  Pressable,
+  Linking
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import { useAuth } from './context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -27,8 +29,12 @@ const COLORS = {
   overlay: 'rgba(239, 68, 68, 0.2)' // Red Glow
 };
 
-const EmergencyScreen = ({ navigation }: { navigation: any }) => {
+const EmergencyScreen = ({ navigation, route }: { navigation: any; route?: any }) => {
+  const { user } = useAuth();
   const [alertSent, setAlertSent] = useState(false);
+  
+  // Get emergency contact from user profile
+  const emergencyContact = user?.emergency_contact as { name?: string; phone?: string } | null;
   
   // Animation Values
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -171,9 +177,23 @@ const EmergencyScreen = ({ navigation }: { navigation: any }) => {
 
       {/* --- FOOTER ACTIONS --- */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.callButton}>
+        <TouchableOpacity 
+          style={styles.callButton}
+          onPress={() => {
+            if (emergencyContact?.phone) {
+              Linking.openURL(`tel:${emergencyContact.phone}`);
+            } else {
+              // Fallback to 911 if no emergency contact is set
+              Linking.openURL('tel:911');
+            }
+          }}
+        >
           <Ionicons name="call" size={24} color="white" style={{ marginRight: 10 }} />
-          <Text style={styles.callButtonText}>Call 911 Directly</Text>
+          <Text style={styles.callButtonText}>
+            {emergencyContact?.phone 
+              ? `Call ${emergencyContact.name || 'Emergency Contact'}` 
+              : 'Call 911 Directly'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity 

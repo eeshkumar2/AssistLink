@@ -94,7 +94,7 @@ export default function ChatList2({ navigation }: any) {
     const otherParty = getOtherParty(item);
     console.log("Rendering item:", item.id, "Other party:", otherParty);
     const name = otherParty?.full_name || otherParty?.name || 'Unknown';
-    const avatar = otherParty?.profile_photo_url || 'https://i.pravatar.cc/150?u=' + item.id;
+    const avatarUrl = otherParty?.profile_photo_url;
     const role = user?.role === 'caregiver' ? 'CARE RECIPIENT' : 'CAREGIVER';
     const roleColor = user?.role === 'caregiver' ? '#F3E5F5' : '#E8F5E9';
     const roleTextColor = user?.role === 'caregiver' ? '#6A1B9A' : '#2E7D32';
@@ -106,11 +106,17 @@ export default function ChatList2({ navigation }: any) {
         onPress={() => navigation.navigate('ChatDetailsScreen', {
           chatSessionId: item.id,
           otherPartyName: name,
-          otherPartyAvatar: avatar,
+          otherPartyAvatar: avatarUrl || null,
         })}
       >
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: avatar }} style={styles.avatar} />
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="account" size={24} color="#6B7280" />
+            </View>
+          )}
         </View>
 
         <View style={styles.chatContent}>
@@ -211,6 +217,14 @@ const styles = StyleSheet.create({
   chatCard: { flexDirection: 'row', backgroundColor: THEME.card, marginHorizontal: 16, marginBottom: 12, borderRadius: 20, padding: 16, alignItems: 'center', elevation: 2 },
   avatarContainer: { position: 'relative', marginRight: 15 },
   avatar: { width: 55, height: 55, borderRadius: 27.5, backgroundColor: THEME.iconPlaceholder },
+  avatarPlaceholder: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   chatContent: { flex: 1 },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   name: { color: THEME.text, fontSize: 16, fontWeight: '700' },

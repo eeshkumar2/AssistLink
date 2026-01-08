@@ -1,3 +1,7 @@
+// CRITICAL: Polyfill must load FIRST before any other imports
+// This prevents setCustomSourceTransformer error from react-native-maps
+require('./src/polyfills/resolveAssetSource');
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

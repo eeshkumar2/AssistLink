@@ -110,6 +110,7 @@ export const api = {
     date_of_birth: string;
     address: any;
     profile_photo_url: string;
+    emergency_contact: { name: string; phone: string } | null;
   }>) =>
     request("/api/users/profile", {
       method: "PUT",

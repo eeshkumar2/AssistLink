@@ -30,6 +30,9 @@ export default function ScheduleScreen({ navigation, route }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'video-calls' | 'bookings'>('video-calls');
   const [startedVideoCalls, setStartedVideoCalls] = useState<Set<string>>(new Set());
+  
+  // Hide video-calls tab if any video call has been started
+  const shouldHideVideoCallsTab = startedVideoCalls.size > 0;
 
   const fetchData = async () => {
     try {
@@ -111,16 +114,19 @@ export default function ScheduleScreen({ navigation, route }: any) {
   const renderVideoCallItem = ({ item }: { item: any }) => {
     const statusColors = getStatusColor(item.status);
     const caregiver = item.caregiver || {};
-    const avatarSource = caregiver.profile_photo_url 
-      ? { uri: caregiver.profile_photo_url } 
-      : { uri: 'https://i.pravatar.cc/150?u=caregiver' };
 
     const canStartCall = item.status?.toLowerCase() === 'accepted' && !startedVideoCalls.has(item.id);
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Image source={avatarSource} style={styles.avatar} />
+          {caregiver.profile_photo_url ? (
+            <Image source={{ uri: caregiver.profile_photo_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="account" size={24} color="#6B7280" />
+            </View>
+          )}
           <View style={styles.info}>
             <Text style={styles.name}>
               Video call with {caregiver.full_name || 'Caregiver'}
@@ -139,20 +145,59 @@ export default function ScheduleScreen({ navigation, route }: any) {
         <View style={styles.dateTimeRow}>
           <View style={styles.dtItem}>
             <Icon name="calendar" size={16} color={THEME.subText} />
-            <Text style={styles.dtText}>{formatDate(item.scheduled_time)}</Text>
+            <Text style={styles.dtText}>
+              {item.start_time 
+                ? formatDate(item.start_time)
+                : formatDate(item.scheduled_time)}
+            </Text>
           </View>
           <View style={styles.dtItem}>
             <Icon name="clock-outline" size={16} color={THEME.subText} />
-            <Text style={styles.dtText}>{formatTime(item.scheduled_time)}</Text>
+            <Text style={styles.dtText}>
+              {item.start_time && item.end_time
+                ? `${formatTime(item.start_time)} - ${formatTime(item.end_time)}`
+                : formatTime(item.scheduled_time)}
+            </Text>
           </View>
+          {item.duration_hours && (
+            <View style={styles.dtItem}>
+              <Icon name="timer" size={16} color={THEME.subText} />
+              <Text style={styles.dtText}>{item.duration_hours}h</Text>
+            </View>
+          )}
         </View>
+        
+        {/* Service Type and Location */}
+        {item.service_type && (
+          <View style={styles.detailRow}>
+            <Icon name="briefcase" size={16} color={THEME.subText} />
+            <Text style={styles.detailText}>
+              {item.service_type === 'exam_assistance' ? 'Exam Assistance' :
+               item.service_type === 'daily_care' ? 'Daily Care' :
+               item.service_type === 'emergency' ? 'Emergency' :
+               item.service_type}
+            </Text>
+          </View>
+        )}
+        {item.location && (
+          <View style={styles.detailRow}>
+            <Icon name="map-marker" size={16} color={THEME.subText} />
+            <Text style={styles.detailText}>
+              {typeof item.location === 'string' 
+                ? item.location
+                : item.location?.text || item.location?.address || 'Location not specified'}
+            </Text>
+          </View>
+        )}
 
         {canStartCall && (
           <TouchableOpacity
             style={styles.callBtn}
             onPress={async () => {
-              // Mark this video call as started
+              // Mark this video call as started (this will hide the video-calls tab)
               setStartedVideoCalls(prev => new Set(prev).add(item.id));
+              // Switch to bookings tab immediately to hide video-calls tab
+              setActiveTab('bookings');
               // Accept video call request on behalf of care recipient if not already accepted
               try {
                 if (!item.care_recipient_accepted) {
@@ -165,8 +210,11 @@ export default function ScheduleScreen({ navigation, route }: any) {
               } catch (error) {
                 console.error('[ScheduleScreen] Error accepting video call:', error);
               }
-              // Placeholder: integrate real video call screen / deep link here
-              console.log('Start video call URL:', item.video_call_url);
+              // Navigate to video call screen (15-second placeholder)
+              navigation.navigate('VideoCallScreen', {
+                videoCallId: item.id,
+                caregiverName: caregiver.full_name || 'Caregiver',
+              });
             }}
           >
             <Icon name="video" size={18} color="#fff" />
@@ -180,9 +228,6 @@ export default function ScheduleScreen({ navigation, route }: any) {
   const renderBookingItem = ({ item }: { item: any }) => {
     const statusColors = getStatusColor(item.status);
     const caregiver = item.caregiver || {};
-    const avatarSource = caregiver.profile_photo_url 
-      ? { uri: caregiver.profile_photo_url } 
-      : { uri: 'https://i.pravatar.cc/150?u=caregiver' };
 
     const serviceTypeMap: Record<string, string> = {
       'exam_assistance': 'Exam Assistance',
@@ -198,7 +243,13 @@ export default function ScheduleScreen({ navigation, route }: any) {
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Image source={avatarSource} style={styles.avatar} />
+          {caregiver.profile_photo_url ? (
+            <Image source={{ uri: caregiver.profile_photo_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Icon name="account" size={24} color="#6B7280" />
+            </View>
+          )}
           <View style={styles.info}>
             <Text style={styles.name}>
               Booking with {caregiver.full_name || 'Caregiver'}
@@ -255,15 +306,17 @@ export default function ScheduleScreen({ navigation, route }: any) {
       );
     }
 
-    const data = activeTab === 'video-calls' ? videoCalls : bookings;
-    const renderItem = activeTab === 'video-calls' ? renderVideoCallItem : renderBookingItem;
+    // If video-calls tab is hidden, default to bookings
+    const currentTab = shouldHideVideoCallsTab ? 'bookings' : activeTab;
+    const data = currentTab === 'video-calls' ? videoCalls : bookings;
+    const renderItem = currentTab === 'video-calls' ? renderVideoCallItem : renderBookingItem;
 
     if (data.length === 0) {
       return (
         <View style={styles.centerContainer}>
-          <Icon name={activeTab === 'video-calls' ? 'video-off' : 'calendar-blank'} size={48} color={THEME.subText} />
+          <Icon name={currentTab === 'video-calls' ? 'video-off' : 'calendar-blank'} size={48} color={THEME.subText} />
           <Text style={styles.emptyText}>
-            No {activeTab === 'video-calls' ? 'video calls' : 'bookings'} scheduled
+            No {currentTab === 'video-calls' ? 'video calls' : 'bookings'} scheduled
           </Text>
         </View>
       );
@@ -292,15 +345,17 @@ export default function ScheduleScreen({ navigation, route }: any) {
       </View>
 
       <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'video-calls' && styles.activeTab]}
-          onPress={() => setActiveTab('video-calls')}
-        >
-          <Icon name="video" size={18} color={activeTab === 'video-calls' ? '#fff' : THEME.subText} />
-          <Text style={[styles.tabText, activeTab === 'video-calls' && styles.activeTabText]}>
-            Video Calls ({videoCalls.length})
-          </Text>
-        </TouchableOpacity>
+        {!shouldHideVideoCallsTab && (
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'video-calls' && styles.activeTab]}
+            onPress={() => setActiveTab('video-calls')}
+          >
+            <Icon name="video" size={18} color={activeTab === 'video-calls' ? '#fff' : THEME.subText} />
+            <Text style={[styles.tabText, activeTab === 'video-calls' && styles.activeTabText]}>
+              Video Calls ({videoCalls.length})
+            </Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={[styles.tab, activeTab === 'bookings' && styles.activeTab]}
           onPress={() => setActiveTab('bookings')}
@@ -373,6 +428,14 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', marginBottom: 12 },
   avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eee' },
+  avatarPlaceholder: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   info: { flex: 1, marginLeft: 12, justifyContent: 'center' },
   name: { fontSize: 16, fontWeight: '700', color: THEME.text },
   role: { fontSize: 13, color: THEME.subText, marginTop: 2 },
@@ -387,6 +450,8 @@ const styles = StyleSheet.create({
   },
   dtItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16 },
   dtText: { marginLeft: 6, color: THEME.subText, fontSize: 13, fontWeight: '500' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, marginLeft: 4 },
+  detailText: { marginLeft: 8, color: THEME.subText, fontSize: 13, flex: 1 },
   pendingPaymentText: {
     fontSize: 12,
     color: THEME.pendingText,

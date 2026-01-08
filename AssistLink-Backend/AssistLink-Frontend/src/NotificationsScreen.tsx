@@ -93,14 +93,16 @@ const NotificationsScreen = ({ navigation }: any) => {
           <View style={styles.iconContainer}>
             {type === 'request' || type === 'message' || type === 'review' || type === 'video_call' || type === 'booking' ? (
               <View>
-                <Image
-                  source={{
-                    uri:
-                      item.avatar ||
-                      'https://i.pravatar.cc/100?u=' + item.id,
-                  }}
-                  style={styles.avatar}
-                />
+                {item.avatar ? (
+                  <Image
+                    source={{ uri: item.avatar }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <MaterialCommunityIcons name="account" size={24} color="#6B7280" />
+                  </View>
+                )}
                 {type === 'request' && (
                    <View style={styles.miniBadgeBlue}><Ionicons name="briefcase" size={10} color="#FFF" /></View>
                 )}
@@ -166,7 +168,8 @@ const NotificationsScreen = ({ navigation }: any) => {
           user?.role === 'caregiver' &&
           item.data?.video_call_id &&
           // Show actions only while request is still pending and caregiver hasn't accepted/declined
-          (item.data?.status === 'pending' || item.status === 'pending' || (!item.data?.status && !item.status)) && (
+          (item.data?.status === 'pending' || item.status === 'pending' || (!item.data?.status && !item.status)) &&
+          !item.data?.caregiver_accepted && (
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.acceptBtn}
@@ -374,6 +377,14 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+  },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   iconCircle: {
     width: 48,

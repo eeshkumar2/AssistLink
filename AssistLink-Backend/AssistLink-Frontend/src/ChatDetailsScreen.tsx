@@ -139,7 +139,12 @@ const ChatDetailsScreen = ({ route, navigation }: any) => {
           <TouchableOpacity style={styles.iconBtn}>
             <Icon name="phone-outline" size={24} color={THEME.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconBtn, styles.videoBtn]}>
+          <TouchableOpacity 
+            style={[styles.iconBtn, styles.videoBtn]}
+            onPress={() => navigation.navigate('VideoCallScreen', {
+              otherPartyName: otherPartyName || 'User',
+            })}
+          >
             <Icon name="video-outline" size={24} color={THEME.primary} />
           </TouchableOpacity>
         </View>
@@ -174,10 +179,16 @@ const ChatDetailsScreen = ({ route, navigation }: any) => {
                   ]}
                 >
                   {!isMine && showAvatar && (
-                    <Image 
-                      source={{ uri: otherPartyAvatar || 'https://i.pravatar.cc/150?u=user' }} 
-                      style={styles.avatarSmall} 
-                    />
+                    otherPartyAvatar && !otherPartyAvatar.includes('pravatar.cc') ? (
+                      <Image 
+                        source={{ uri: otherPartyAvatar }} 
+                        style={styles.avatarSmall} 
+                      />
+                    ) : (
+                      <View style={styles.avatarPlaceholder}>
+                        <Icon name="account" size={16} color="#6B7280" />
+                      </View>
+                    )
                   )}
                   {!isMine && !showAvatar && <View style={styles.avatarPlaceholder} />}
                   
@@ -318,7 +329,12 @@ const styles = StyleSheet.create({
   },
   avatarPlaceholder: {
     width: 32,
+    height: 32,
+    borderRadius: 16,
     marginRight: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bubbleLeft: {
     backgroundColor: THEME.white,

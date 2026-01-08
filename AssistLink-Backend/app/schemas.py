@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     role: str = Field(..., pattern="^(care_recipient|caregiver)$")
     address: Optional[Dict[str, Any]] = None
     profile_photo_url: Optional[str] = None
+    emergency_contact: Optional[Dict[str, Any]] = None
 
 
 class UserCreate(UserBase):
@@ -30,6 +31,7 @@ class UserUpdate(BaseModel):
     date_of_birth: Optional[datetime] = None
     address: Optional[Dict[str, Any]] = None
     profile_photo_url: Optional[str] = None
+    emergency_contact: Optional[Dict[str, Any]] = None
 
 
 class UserResponse(UserBase):

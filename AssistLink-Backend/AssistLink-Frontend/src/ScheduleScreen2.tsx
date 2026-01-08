@@ -133,14 +133,17 @@ export default function ScheduleScreen2({ navigation }: any) {
 
   const renderVideoCallItem = ({ item }: any) => {
     const careRecipient = item.care_recipient || {};
-    const avatarSource = careRecipient.profile_photo_url
-      ? { uri: careRecipient.profile_photo_url }
-      : { uri: 'https://i.pravatar.cc/150?u=recipient' };
 
     return (
       <TouchableOpacity style={styles.card}>
         <View style={styles.row}>
-          <Image source={avatarSource} style={styles.avatar} />
+          {careRecipient.profile_photo_url ? (
+            <Image source={{ uri: careRecipient.profile_photo_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={24} color="#6B7280" />
+            </View>
+          )}
           <View style={{ marginLeft: 12, flex: 1 }}>
             <Text style={styles.name}>{careRecipient.full_name || 'Care Recipient'}</Text>
             <Text style={styles.service}>Video Call • {item.duration_seconds || 15}s</Text>
@@ -318,6 +321,14 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 48, height: 48, borderRadius: 24 },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   name: { fontSize: 16, fontWeight: '700' },
   service: { fontSize: 13, color: '#6B7280' },
   meta: { fontSize: 12, color: '#9CA3AF' },
