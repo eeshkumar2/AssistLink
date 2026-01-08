@@ -1,0 +1,309 @@
+// Use environment variable if set, otherwise use local network IP for mobile devices
+// For Android physical devices, use your computer's local IP address (not localhost)
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://192.168.0.115:8000";
+
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+}
+
+// Helper to get token from storage (for web)
+async function getTokenFromStorage(): Promise<string | null> {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem('assistlink_token');
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as any),
+  };
+
+  // Always try to get the token - first from module variable, then from storage
+  let token = accessToken;
+  if (!token) {
+    token = await getTokenFromStorage();
+    if (token) {
+      accessToken = token; // Cache it for next time
+    }
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+
+  const text = await res.text();
+
+  if (!res.ok) {
+    let message = text || `Request failed with status ${res.status}`;
+    try {
+      const json = JSON.parse(text);
+      if (json.detail) {
+        message = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
+      }
+    } catch {
+      // ignore JSON parse error, keep text
+    }
+    throw new Error(message);
+  }
+
+  if (!text) {
+    // no body
+    return {} as T;
+  }
+
+  return JSON.parse(text) as T;
+}
+
+export const api = {
+  // Authentication
+  register: (payload: {
+    email: string;
+    password: string;
+    full_name: string;
+    phone?: string;
+    date_of_birth?: string;
+    role: "care_recipient" | "caregiver";
+    address?: any;
+    profile_photo_url?: string | null;
+  }) =>
+    request("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  login: (payload: { email: string; password: string }) =>
+    request<{
+      access_token: string;
+      refresh_token: string;
+      token_type: string;
+      user: any;
+    }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  me: () => request("/api/auth/me"),
+
+  // Users
+  getProfile: () => request("/api/users/profile"),
+
+  updateProfile: (data: Partial<{
+    full_name: string;
+    phone: string;
+    date_of_birth: string;
+    address: any;
+    profile_photo_url: string;
+  }>) =>
+    request("/api/users/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  // Notifications
+  getNotifications: (opts: {
+    limit?: number;
+    offset?: number;
+    unread_only?: boolean;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (opts.limit != null) qs.append("limit", String(opts.limit));
+    if (opts.offset != null) qs.append("offset", String(opts.offset));
+    if (opts.unread_only) qs.append("unread_only", "true");
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/notifications${query}`);
+  },
+
+  markAllNotificationsRead: () =>
+    request("/api/notifications/read-all", {
+      method: "POST",
+    }),
+
+  // Caregivers
+  listCaregivers: (params: {
+    availability_status?: string;
+    min_rating?: number;
+    skills?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.availability_status) qs.append("availability_status", params.availability_status);
+    if (params.min_rating != null) qs.append("min_rating", String(params.min_rating));
+    if (params.skills) qs.append("skills", params.skills);
+    if (params.limit != null) qs.append("limit", String(params.limit));
+    if (params.offset != null) qs.append("offset", String(params.offset));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/caregivers${query}`);
+  },
+
+  // Video call (short intro call)
+  createVideoCallRequest: (data: {
+    caregiver_id: string;
+    scheduled_time: string; // ISO datetime
+    duration_seconds?: number;
+  }) =>
+    request("/api/bookings/video-call/request", {
+      method: "POST",
+      body: JSON.stringify({
+        caregiver_id: data.caregiver_id,
+        scheduled_time: data.scheduled_time,
+        duration_seconds: data.duration_seconds ?? 15,
+      }),
+    }),
+
+  acceptVideoCallRequest: (videoCallId: string, accept: boolean) =>
+    request(`/api/bookings/video-call/${videoCallId}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ accept }),
+    }),
+
+  // Bookings
+  createBooking: (data: {
+    service_type: "exam_assistance" | "daily_care" | "one_time" | "recurring";
+    scheduled_date: string; // ISO datetime
+    duration_hours?: number;
+    location?: any;
+    specific_needs?: string;
+    is_recurring?: boolean;
+    recurring_pattern?: any;
+    caregiver_id?: string;
+  }) =>
+    request("/api/bookings", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Dashboard
+  getDashboardBookings: (params: {
+    status?: string;
+    is_recurring?: boolean;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.status) qs.append("status", params.status);
+    if (params.is_recurring != null) qs.append("is_recurring", String(params.is_recurring));
+    if (params.limit != null) qs.append("limit", String(params.limit));
+    if (params.offset != null) qs.append("offset", String(params.offset));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/dashboard/bookings${query}`);
+  },
+
+  getDashboardVideoCalls: (params: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.status) qs.append("status", params.status);
+    if (params.limit != null) qs.append("limit", String(params.limit));
+    if (params.offset != null) qs.append("offset", String(params.offset));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/dashboard/video-calls${query}`);
+  },
+
+  // Payments
+  createPaymentOrder: (data: {
+    booking_id: string;
+    amount: number;
+    currency?: string;
+  }) =>
+    request<{
+      order_id: string;
+      amount: number;
+      currency: string;
+      key_id: string;
+      booking_id: string;
+    }>("/api/payments/create-order", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  verifyPayment: (data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) =>
+    request<{
+      success: boolean;
+      message: string;
+      booking_id?: string;
+    }>("/api/payments/verify", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // Bookings
+  completePayment: (bookingId: string) =>
+    request(`/api/bookings/${bookingId}/complete-payment`, {
+      method: "POST",
+    }),
+
+  completeBooking: (bookingId: string) =>
+    request(`/api/bookings/${bookingId}/complete`, {
+      method: "POST",
+    }),
+
+  // Caregiver Profile
+  getCaregiverProfile: () => request("/api/caregivers/profile"),
+  updateCaregiverProfile: (data: { availability_status?: string; [key: string]: any }) =>
+    request("/api/caregivers/profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
+  // Chat
+  getChatSessions: () => request("/api/chat/sessions"),
+
+  getChatSession: (chatSessionId: string) =>
+    request(`/api/chat/sessions/${chatSessionId}`),
+
+  getMessages: (chatSessionId: string, params: {
+    limit?: number;
+    offset?: number;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.limit != null) qs.append("limit", String(params.limit));
+    if (params.offset != null) qs.append("offset", String(params.offset));
+    const query = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/chat/sessions/${chatSessionId}/messages${query}`);
+  },
+
+  sendMessage: (chatSessionId: string, data: {
+    content: string;
+    message_type?: string;
+    attachment_url?: string;
+  }) =>
+    request(`/api/chat/sessions/${chatSessionId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({
+        content: data.content,
+        message_type: data.message_type || "text",
+        attachment_url: data.attachment_url,
+      }),
+    }),
+
+  markMessagesAsRead: (chatSessionId: string) =>
+    request(`/api/chat/sessions/${chatSessionId}/read`, {
+      method: "POST",
+    }),
+};
+
+
