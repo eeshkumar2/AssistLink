@@ -91,19 +91,40 @@ async def login(credentials: LoginRequest):
                 detail="Invalid email or password"
             )
         
+        # Check if session exists and has access_token
+        if not response.session:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Login failed: No session created. Please check your credentials."
+            )
+        
+        if not hasattr(response.session, 'access_token') or not response.session.access_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Login failed: Invalid session. Please try again."
+            )
+        
         return {
             "access_token": response.session.access_token,
-            "refresh_token": response.session.refresh_token,
+            "refresh_token": response.session.refresh_token if hasattr(response.session, 'refresh_token') else None,
             "token_type": "bearer",
             "user": response.user
         }
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
         error_message = str(e).lower()
+        sys.stderr.write(f"[ERROR] Login error: {str(e)}\n")
+        sys.stderr.flush()
+        
         # Provide more specific error messages
-        if "invalid login credentials" in error_message or "email not confirmed" in error_message:
+        if "invalid login credentials" in error_message or "invalid_credentials" in error_message:
             detail = "Invalid email or password. Please check your credentials."
         elif "email not confirmed" in error_message or "email_not_confirmed" in error_message:
             detail = "Email not verified. Please check your email for verification link."
+        elif "network" in error_message or "connection" in error_message:
+            detail = "Network error: Unable to connect to authentication service. Please try again."
         else:
             detail = f"Login failed: {str(e)}"
         

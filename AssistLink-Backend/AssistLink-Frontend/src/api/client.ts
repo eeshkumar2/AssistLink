@@ -1,7 +1,11 @@
-// Use environment variable if set, otherwise use local network IP for mobile devices
-// For Android physical devices, use your computer's local IP address (not localhost)
+// Use environment variable if set, otherwise use production API URL
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://192.168.0.115:8000";
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://assistlink.onrender.com";
+
+// Log the API base URL on initialization (helps debug connection issues)
+if (typeof window !== 'undefined') {
+  console.log(`[API] API Base URL: ${API_BASE_URL}`);
+}
 
 let accessToken: string | null = null;
 
@@ -43,32 +47,68 @@ async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  // Add timeout using AbortController (15 seconds default)
+  const timeoutMs = 15000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const text = await res.text();
+  const url = `${API_BASE_URL}${path}`;
+  console.log(`[API] Making ${options.method || 'GET'} request to: ${url}`);
 
-  if (!res.ok) {
-    let message = text || `Request failed with status ${res.status}`;
-    try {
-      const json = JSON.parse(text);
-      if (json.detail) {
-        message = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    
+    console.log(`[API] Response received: ${res.status} ${res.statusText} for ${path}`);
+
+    clearTimeout(timeoutId);
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      let message = text || `Request failed with status ${res.status}`;
+      try {
+        const json = JSON.parse(text);
+        if (json.detail) {
+          message = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
+        }
+      } catch {
+        // ignore JSON parse error, keep text
       }
-    } catch {
-      // ignore JSON parse error, keep text
+      throw new Error(message);
     }
-    throw new Error(message);
-  }
 
-  if (!text) {
-    // no body
-    return {} as T;
-  }
+    if (!text) {
+      // no body
+      return {} as T;
+    }
 
-  return JSON.parse(text) as T;
+    return JSON.parse(text) as T;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    console.error(`[API] Request failed for ${path}:`, error);
+    
+    // Handle timeout/abort errors
+    if (error.name === 'AbortError' || error.message === 'The user aborted a request.') {
+      const errorMsg = `Request timeout: The server did not respond within ${timeoutMs / 1000} seconds. Please check your connection and ensure the server is running at ${API_BASE_URL}`;
+      console.error(`[API] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    
+    // Handle network errors
+    if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+      const errorMsg = `Network error: Unable to connect to the server at ${API_BASE_URL}. Please check your internet connection and ensure the server is running.`;
+      console.error(`[API] ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+    
+    // Re-throw other errors as-is
+    throw error;
+  }
 }
 
 export const api = {
