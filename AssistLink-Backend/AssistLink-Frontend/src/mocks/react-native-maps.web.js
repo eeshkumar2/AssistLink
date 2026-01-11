@@ -1,65 +1,20 @@
 // Mock react-native-maps for Expo Go (it requires native builds and doesn't work in Expo Go)
-// This mock prevents the setCustomSourceTransformer error
+// Note: The setCustomSourceTransformer polyfill is handled separately in src/polyfills/resolveAssetSource.js
+// This mock only provides the component stubs
 
-// CRITICAL: Patch setCustomSourceTransformer IMMEDIATELY - this MUST run first
-// This patches resolveAssetSource before ANY module can require react-native-maps
-// NOTE: Metro requires static require() calls, not dynamic ones
-(function patchResolveAssetSourceImmediately() {
-  'use strict';
-  
-  let resolveAssetSource = null;
-  
-  // Try primary path (static require for Metro compatibility)
-  try {
-    resolveAssetSource = require('react-native/Libraries/Image/resolveAssetSource');
-  } catch (e1) {
-    // Try alternative path
-    try {
-      resolveAssetSource = require('react-native/src/Libraries/Image/resolveAssetSource');
-    } catch (e2) {
-      // Both paths failed - polyfill will handle it
-      return;
-    }
-  }
-  
-  if (resolveAssetSource) {
-    // CRITICAL: Define setCustomSourceTransformer BEFORE any code can call it
-    if (typeof resolveAssetSource.setCustomSourceTransformer === 'undefined') {
-      // Use Object.defineProperty for immediate patching
-      Object.defineProperty(resolveAssetSource, 'setCustomSourceTransformer', {
-        value: function() {
-          // No-op: This API is deprecated and not needed in Expo Go
-          // Prevents "is not a function (it is undefined)" errors
-        },
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
-    } else if (typeof resolveAssetSource.setCustomSourceTransformer !== 'function') {
-      // If it exists but isn't a function, replace it
-      resolveAssetSource.setCustomSourceTransformer = function() {
-        // No-op
-      };
-    }
-  }
-})();
+// Note: We're not using React.createElement in this mock to avoid availability issues
+// Components using MapView should check for null and render fallback UI
 
-// Lazy load React to avoid require cycle and ensure it's available
-const getReact = () => require('react');
-const getReactNative = () => require('react-native');
-
-// Mock MapView component - use function component instead of forwardRef to avoid React loading issues
-const MapView = function MapView({ children, style, ...props }) {
-  const React = getReact();
-  const { View, Text } = getReactNative();
-  
-  // Handle ref if provided
-  if (props.ref) {
+// Mock MapView component - return null so components can use their fallbacks
+// Components like CaregiverMapScreen have fallbacks that will render instead
+const MapView = function MapView(props) {
+  // Handle ref if provided (for compatibility with components that use refs)
+  if (props && props.ref) {
     const refMethods = { 
-      animateToRegion: () => {}, 
-      fitToCoordinates: () => {},
-      animateToCoordinate: () => {},
-      getCamera: () => Promise.resolve({}),
+      animateToRegion: function() {}, 
+      fitToCoordinates: function() {},
+      animateToCoordinate: function() {},
+      getCamera: function() { return Promise.resolve({}); },
     };
     
     if (typeof props.ref === 'function') {
@@ -69,32 +24,16 @@ const MapView = function MapView({ children, style, ...props }) {
     }
   }
   
-  // Remove ref from props before passing to View
-  const { ref, ...viewProps } = props;
-
-  return React.createElement(View, { 
-    ...viewProps,
-    style: [style, { backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 20, minHeight: 200 }] 
-  }, [
-    React.createElement(Text, { 
-      key: 'text1',
-      style: { color: '#6B7280', fontSize: 16, textAlign: 'center', fontWeight: '600' } 
-    }, '🗺️ Map features unavailable'),
-    React.createElement(Text, { 
-      key: 'text2',
-      style: { color: '#9CA3AF', fontSize: 12, marginTop: 8, textAlign: 'center' } 
-    }, 'Map features require a development build\nand are not available in Expo Go'),
-    children
-  ].filter(Boolean));
+  // Return null - components using MapView should check for null and use fallback UI
+  // This avoids React.createElement issues in the mock context
+  return null;
 };
 
 MapView.displayName = 'MapView';
 
-// Mock Marker component - use function without JSX to avoid React loading issues
-const Marker = function Marker({ children, ...props }) {
-  const React = getReact();
-  const { View } = getReactNative();
-  return React.createElement(View, props, children);
+// Mock Marker component - return null
+const Marker = function Marker(props) {
+  return null;
 };
 
 // Mock Polyline component  
@@ -128,15 +67,15 @@ const MapsModule = {
   AnimatedMapView,
   MAP_TYPES,
   // Additional exports that react-native-maps might export
-  Circle: () => null,
-  Polygon: () => null,
-  Heatmap: () => null,
-  Overlay: () => null,
-  Callout: () => null,
-  CalloutSubview: () => null,
-  UrlTile: () => null,
-  WMSTile: () => null,
-  LocalTile: () => null,
+  Circle: function Circle() { return null; },
+  Polygon: function Polygon() { return null; },
+  Heatmap: function Heatmap() { return null; },
+  Overlay: function Overlay() { return null; },
+  Callout: function Callout() { return null; },
+  CalloutSubview: function CalloutSubview() { return null; },
+  UrlTile: function UrlTile() { return null; },
+  WMSTile: function WMSTile() { return null; },
+  LocalTile: function LocalTile() { return null; },
 };
 
 // Export using both CommonJS and ES module style for compatibility

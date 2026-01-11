@@ -30,22 +30,35 @@ try {
     Marker = Maps.Marker;
     Polyline = Maps.Polyline;
     PROVIDER_DEFAULT = Maps.PROVIDER_DEFAULT;
+    
+    // Check if this is the mock: mock sets PROVIDER_DEFAULT to undefined
+    // Real react-native-maps would have a PROVIDER_DEFAULT value
+    if (PROVIDER_DEFAULT === undefined && MapView && typeof MapView === 'function') {
+      // This is likely the mock - check if it's the mock by seeing if it's a simple function
+      // The mock returns null, so we'll use the fallback instead
+      MapView = null;
+      Marker = null;
+      Polyline = null;
+      PROVIDER_DEFAULT = undefined;
+    }
   }
 } catch (e) {
   // If require fails, Metro should have replaced it with mock, but just in case:
   console.warn('react-native-maps not available, using fallback:', e);
 }
 
-// Web fallback components
+// Web fallback components - use if MapView is null or if we detected it's the mock
 if (!MapView) {
   MapView = ({ children, style, ...props }: any) => (
-    <View style={[style, { backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-      <Icon name="map-marker-off" size={48} color="#9CA3AF" />
-      <Text style={{ color: '#6B7280', fontSize: 16, marginTop: 12, textAlign: 'center' }}>Map features unavailable</Text>
-      <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 8, textAlign: 'center' }}>
+    <View style={[style, { backgroundColor: '#EBF4EF', justifyContent: 'center', alignItems: 'center', padding: 20, minHeight: 400 }]}>
+      <Icon name="map-marker-off" size={64} color="#059669" />
+      <Text style={{ color: '#1F2937', fontSize: 18, fontWeight: '600', marginTop: 16, textAlign: 'center' }}>
+        Map View Unavailable
+      </Text>
+      <Text style={{ color: '#6B7280', fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 20, lineHeight: 20 }}>
         {Platform.OS === 'web' 
-          ? 'Map features are only available on mobile devices. Please use the Android app.'
-          : 'Please install react-native-maps and expo-location to enable map features'}
+          ? 'Map features are only available on mobile devices. Please use the Android app for full functionality.'
+          : 'Map features require a development build and are not available in Expo Go. Please build the app using "npx expo run:android" to enable map features.'}
       </Text>
       {children}
     </View>

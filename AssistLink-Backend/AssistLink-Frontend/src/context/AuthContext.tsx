@@ -88,12 +88,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
-    const timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.warn("AuthContext: Auth restoration timeout - proceeding without auth");
-        setLoading(false);
-      }
-    }, 5000); // 5 second timeout
 
     (async () => {
       console.log("AuthContext: Restoring authentication state...");
@@ -104,13 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setAccessTokenState(token);
           setAccessToken(token);
           try {
-            // Add timeout to api.me() call
-            const mePromise = api.me();
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error("Request timeout")), 3000)
-            );
-            
-            const me = await Promise.race([mePromise, timeoutPromise]);
+            const me = await api.me();
             if (isMounted) {
               console.log("AuthContext: User profile restored:", (me as any)?.email || (me as any)?.full_name || "Unknown");
               setUser(me as any);
@@ -120,8 +108,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const errorMsg = meError?.message || '';
             console.error("AuthContext: Failed to fetch user profile:", errorMsg);
             if (isMounted) {
-              if (errorMsg.includes('401') || errorMsg.includes('Not authenticated') || errorMsg.includes('Unauthorized') || errorMsg.includes('timeout')) {
-                console.log("AuthContext: Token expired, invalid, or timeout - clearing...");
+              if (errorMsg.includes('401') || errorMsg.includes('Not authenticated') || errorMsg.includes('Unauthorized')) {
+                console.log("AuthContext: Token expired or invalid - clearing...");
                 await clearToken();
                 setAccessTokenState(null);
                 setAccessToken(null);
@@ -146,7 +134,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
         }
       } finally {
-        clearTimeout(timeoutId);
         if (isMounted) {
           console.log("AuthContext: Auth restoration complete, loading set to false");
           setLoading(false);
@@ -156,7 +143,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       isMounted = false;
-      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -171,14 +157,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setAccessTokenState(token);
       setAccessToken(token);
       
-      // Add timeout to api.me() call
       try {
-        const mePromise = api.me();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Request timeout")), 5000)
-        );
-        
-        const me = await Promise.race([mePromise, timeoutPromise]);
+        const me = await api.me();
         console.log("AuthContext: User profile fetched:", (me as any)?.email || (me as any)?.full_name || "Unknown");
         setUser(me as any);
       } catch (meError: any) {

@@ -1,6 +1,6 @@
 // Use environment variable if set, otherwise use production API URL
 const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://assistlink.onrender.com";
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? "https://assistlink-1.onrender.com";
 
 // Log the API base URL on initialization (helps debug connection issues)
 if (typeof window !== 'undefined') {
@@ -47,11 +47,6 @@ async function request<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  // Add timeout using AbortController (15 seconds default)
-  const timeoutMs = 15000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   const url = `${API_BASE_URL}${path}`;
   console.log(`[API] Making ${options.method || 'GET'} request to: ${url}`);
 
@@ -59,12 +54,9 @@ async function request<T>(
     const res = await fetch(url, {
       ...options,
       headers,
-      signal: controller.signal,
     });
     
     console.log(`[API] Response received: ${res.status} ${res.statusText} for ${path}`);
-
-    clearTimeout(timeoutId);
 
     const text = await res.text();
 
@@ -88,16 +80,7 @@ async function request<T>(
 
     return JSON.parse(text) as T;
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    
     console.error(`[API] Request failed for ${path}:`, error);
-    
-    // Handle timeout/abort errors
-    if (error.name === 'AbortError' || error.message === 'The user aborted a request.') {
-      const errorMsg = `Request timeout: The server did not respond within ${timeoutMs / 1000} seconds. Please check your connection and ensure the server is running at ${API_BASE_URL}`;
-      console.error(`[API] ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
     
     // Handle network errors
     if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
